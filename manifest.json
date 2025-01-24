@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Gradescope Page Selector Helper",
+  "name": "Gradescope++",
   "version": "1.0",
-  "description": "Changes grey squares to green on Gradescope page selection interface",
+  "description": "Gradescope++",
   "permissions": [
     "https://gradescope-grok-worker.bhargav-annem.workers.dev/",
     "https://production-gradescope-uploads.s3-us-west-2.amazonaws.com/"
@@ -21,5 +21,9 @@
   "web_accessible_resources": [{
     "resources": ["background.gif"],
     "matches": ["<all_urls>"]
-  }]
+  }],
+  "action": {
+    "default_icon": "icon.png",
+    "default_title": "Gradescope++"
+  }
 } 

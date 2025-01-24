@@ -1,5 +1,5 @@
 .green-square {
-    background-color: #4CAF50 !important; /* Green color */
+    background-color: #4CAF50 !important;
     border-color: #45a049 !important;
 }
 
@@ -22,8 +22,44 @@
     cursor: pointer;
     font-size: 14px;
     margin: 10px;
+    transition: background-color 0.3s ease;
 }
 
-#autofill-button:hover {
+#autofill-button:hover:not(.loading) {
     background-color: #1976D2;
-} 
+}
+
+#autofill-button.loading {
+    background: linear-gradient(
+        45deg,
+        #ff0000,
+        #ff7f00,
+        #ffff00,
+        #00ff00,
+        #0000ff,
+        #4b0082,
+        #8b00ff
+    );
+    background-size: 200% 200%;
+    animation: rainbow-move 2s linear infinite;
+    border: none;
+}
+
+@keyframes rainbow-move {
+    0% {
+        background-position: 0% 0%;
+    }
+    100% {
+        background-position: 200% 200%;
+    }
+}
+
+#autofill-button:disabled {
+    opacity: 0.8;
+    cursor: wait;
+}
+
+#autofill-button.loading span {
+    color: white;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}

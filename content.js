@@ -90,6 +90,7 @@ async function analyzeImages(pages, _questions) {
 
 async function selectPagesAndQuestions(pages, questions) {
     const analysis = await analyzeImages(pages, questions);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, which: 27 }));
     
     for (let [idx, result] of analysis.entries()) {
         const questionsToPick = questions.filter(question => result.questions.includes(question.id));
@@ -108,23 +109,41 @@ async function selectPagesAndQuestions(pages, questions) {
 function setLoadingState(button, isLoading) {
     if (!button) return;
     
-    const icon = button.querySelector('.fa');
-    const spanText = button.querySelector('span:last-child');
+    let icon = button.querySelector('.fa');
+    let spanText = button.querySelector('span:last-child');
+    let spanOuter = button.querySelector('span');
     
-    if (!icon || !spanText) return;
+    // If elements are missing, recreate them
+    if (!spanOuter) {
+        spanOuter = document.createElement('span');
+        button.appendChild(spanOuter);
+    }
+    
+    if (!icon) {
+        icon = document.createElement('i');
+        icon.setAttribute('role', 'img');
+        icon.setAttribute('aria-hidden', 'true');
+        spanOuter.insertBefore(icon, spanOuter.firstChild);
+    }
+    
+    if (!spanText) {
+        spanText = document.createElement('span');
+        spanOuter.appendChild(spanText);
+    }
     
     if (isLoading) {
-        icon.className = 'fa fa-spinner fa-spin';
+        button.classList.add('loading');
+        icon.className = 'fa';
         spanText.textContent = ' Analyzing...';
         button.disabled = true;
     } else {
+        button.classList.remove('loading');
         icon.className = 'fa fa-magic';
         spanText.textContent = ' Autofill';
         button.disabled = false;
     }
 }
 
-// Function to add the Autofill button
 function addAutofillButton() {
     if (!window.location.href.includes('/select_pages')) return;
     if (document.getElementById('autofill-button')) return;
@@ -152,18 +171,18 @@ function addAutofillButton() {
     listItem.appendChild(button);
     
     button.addEventListener('click', async () => {
-        const buttonRef = button;
         try {
-            setLoadingState(buttonRef, true);
+            setLoadingState(button, true);
             const questions = getQuestions();
             const pages = getPages();
             await selectPagesAndQuestions(pages, questions);
-            
+            console.log("Autofill complete");
+            // Explicitly reset the button state after completion
+            setLoadingState(button, false);
         } catch (error) {
             console.error('Error during autofill:', error);
             alert('An error occurred during autofill. Please check the console for details.');
-        } finally {
-            setLoadingState(buttonRef, false);
+            setLoadingState(button, false);
         }
     });
     

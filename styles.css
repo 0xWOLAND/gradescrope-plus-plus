@@ -13,22 +13,7 @@
     border: 2px solid rgb(69, 160, 73) !important;
 }
 
-#autofill-button {
-    background-color: #2196F3;
-    color: white;
-    padding: 8px 16px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-    margin: 10px;
-    transition: background-color 0.3s ease;
-}
-
-#autofill-button:hover:not(.loading) {
-    background-color: #1976D2;
-}
-
+/* Only keep the loading animation styles */
 #autofill-button.loading {
     background: linear-gradient(
         45deg,
@@ -39,10 +24,10 @@
         #0000ff,
         #4b0082,
         #8b00ff
-    );
-    background-size: 200% 200%;
+    ) !important;  /* Added !important to override Gradescope styles */
+    background-size: 200% 200% !important;
     animation: rainbow-move 2s linear infinite;
-    border: none;
+    border: none !important;
 }
 
 @keyframes rainbow-move {
@@ -54,12 +39,7 @@
     }
 }
 
-#autofill-button:disabled {
-    opacity: 0.8;
-    cursor: wait;
-}
-
 #autofill-button.loading span {
-    color: white;
+    color: white !important;
     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
 }

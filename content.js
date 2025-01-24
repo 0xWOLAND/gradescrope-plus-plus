@@ -105,17 +105,18 @@ async function selectPagesAndQuestions(pages, questions) {
 function setLoadingState(button, isLoading) {
     if (!button) return;
     
-    let icon = button.querySelector('.fa');
-    let spanText = button.querySelector('span:last-child');
     let spanOuter = button.querySelector('span');
-    
     if (!spanOuter) {
         spanOuter = document.createElement('span');
         button.appendChild(spanOuter);
     }
     
+    let icon = spanOuter.querySelector('.fa');
+    let spanText = spanOuter.querySelector('span:last-child');
+    
     if (!icon) {
         icon = document.createElement('i');
+        icon.className = 'fa';
         icon.setAttribute('role', 'img');
         icon.setAttribute('aria-hidden', 'true');
         spanOuter.insertBefore(icon, spanOuter.firstChild);
@@ -128,12 +129,12 @@ function setLoadingState(button, isLoading) {
     
     if (isLoading) {
         button.classList.add('loading');
-        icon.className = 'fa';
+        icon.className = 'fa fa-spinner fa-spin';  // Keep spinner during loading
         spanText.textContent = ' Analyzing...';
         button.disabled = true;
     } else {
         button.classList.remove('loading');
-        icon.className = 'fa fa-magic';
+        icon.className = 'fa fa-magic';  // Restore magic icon
         spanText.textContent = ' Autofill';
         button.disabled = false;
     }

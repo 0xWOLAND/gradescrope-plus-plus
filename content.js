@@ -1,3 +1,9 @@
+// Configuration
+const WORKER_URL = 'https://gradescope-grok-worker.bhargav-annem.workers.dev';
+
+// Helper function to wait between actions
+const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 // Function to get all questions from the outline
 function getQuestions() {
     const questions = [];
@@ -8,8 +14,8 @@ function getQuestions() {
         const pointsElement = item.querySelector('.selectPagesQuestionOutline--points');
         
         if (titleElement && pointsElement) {
-            const titleText = titleElement.textContent; // e.g., "1 2.1"
-            const [questionNumber, questionId] = titleText.split(' '); // Split into ["1", "2.1"]
+            const titleText = titleElement.textContent;
+            const [questionNumber, questionId] = titleText.split(' ');
             
             questions.push({
                 number: questionNumber.trim(),
@@ -20,7 +26,6 @@ function getQuestions() {
         }
     });
     
-    console.log('Found questions:', questions);
     return questions;
 }
 
@@ -30,16 +35,13 @@ function getPages() {
     const pageItems = document.querySelectorAll('.selectPagesPage');
     
     pageItems.forEach(item => {
-        // Get the page number
         const numberElement = item.querySelector('.pageThumbnail--number-current');
         const pageNumber = numberElement ? numberElement.textContent : '';
         
-        // Get the page image URL
         const imageElement = item.querySelector('.selectPagesPage--image');
         const backgroundImage = imageElement ? imageElement.style.backgroundImage : '';
         const imageUrl = backgroundImage.replace(/^url\(['"](.+)['"]\)$/, '$1');
         
-        // Get the checkbox button
         const checkboxButton = item.querySelector('.pageThumbnail--selector');
         
         pages.push({
@@ -50,167 +52,120 @@ function getPages() {
         });
     });
     
-    console.log('Found pages:', pages);
     return pages;
 }
 
-// Function to convert image URL to base64
-async function getBase64Image(imageUrl) {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';  // Try to request CORS access
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            const dataURL = canvas.toDataURL('image/jpeg');
-            resolve(dataURL);
-        };
-        img.onerror = () => {
-            // If CORS fails, try without crossOrigin
-            const imgRetry = new Image();
-            imgRetry.onload = () => {
-                const canvas = document.createElement('canvas');
-                canvas.width = imgRetry.width;
-                canvas.height = imgRetry.height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(imgRetry, 0, 0);
-                const dataURL = canvas.toDataURL('image/jpeg');
-                resolve(dataURL);
-            };
-            imgRetry.onerror = (error) => {
-                console.error('Error loading image:', error);
-                reject(error);
-            };
-            // Try to load the image directly
-            imgRetry.src = imageUrl;
-        };
-        // First try with CORS
-        img.src = imageUrl;
-    });
-}
-
-// Function to analyze a single image for all questions
+// Function to analyze a single page
 async function analyzeImage(page, questions) {
     try {
-        // Skip if no image URL
         if (!page.imageUrl) {
             console.log(`Skipping page ${page.number} - no image URL`);
             return [];
         }
-        console.log("Page URL: ", page.imageUrl);
 
-        // Convert image to base64
-        const base64Image = await getBase64Image(page.imageUrl);
-        console.log("Converted to base64");
+        const formData = new FormData();
+        formData.append('imageUrl', page.imageUrl);
+        formData.append('questions', JSON.stringify(questions));
 
-        const response = await fetch('https://api.x.ai/v1/chat/completions', {
+        const response = await fetch(WORKER_URL, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer xai-QE2kSBsIXNqpA9EFFXL7bXFbQO5xLx6fFL0uRJd3FCEDkbU4XAXWLVJOhpQjBO01npW278VKkmgjZf86'
-            },
-            body: JSON.stringify({
-                model: "grok-vision-beta",
-                messages: [
-                    {
-                        "role": "system",
-                        "content": "You are an image relevance scorer. Rate how well the image matches each question number on a scale of 0-100."
-                    },
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": `Rate how relevant this image is (0-100) for each question number: ${questions.map(q => q.id).join(', ')}. Respond with ONLY a JSON object like {"2.1": 85, "2.2": 30}`
-                            },
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": base64Image
-                                }
-                            }
-                        ]
-                    }
-                ],
-            })
+            body: formData
         });
 
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new Error(`Worker error! status: ${response.status}`);
         }
 
-        const data = await response.json();
-        if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
-            throw new Error('Invalid response format from API');
-        }
-
-        let scores;
-        try {
-            scores = JSON.parse(data.choices[0].message.content.trim());
-        } catch (e) {
-            console.error('Failed to parse API response:', data.choices[0].message.content);
-            throw new Error('Failed to parse scores from API response');
-        }
-
-        // Convert scores object to array of results
-        return Object.entries(scores).map(([questionId, score]) => ({
-            pageNumber: page.number,
-            questionId,
-            relevanceScore: parseInt(score) || 0,
-            page
-        }));
+        const visibleQuestionIds = await response.json();
+        console.log(`Page ${page.number} visible questions:`, visibleQuestionIds);
+        
+        return visibleQuestionIds;
     } catch (error) {
         console.error(`Error analyzing page ${page.number}:`, error);
         return [];
     }
 }
 
-// Function to analyze all pages
-async function analyzeAllPages(pages, questions) {
-    const allResults = [];
+// Function to find question element by ID
+function findQuestionElement(questionId) {
+    const questions = getQuestions();
+    return questions.find(q => q.id === questionId)?.element;
+}
+
+// Function to sequentially select pages and questions
+async function selectPagesAndQuestions(pages, questions) {
     for (const page of pages) {
-        console.log(`Analyzing page ${page.number}...`);
         try {
-            const pageResults = await analyzeImage(page, questions);
-            if (pageResults.length > 0) {
-                allResults.push(...pageResults);
-                // Add a longer delay between successful requests
-                await new Promise(resolve => setTimeout(resolve, 1000));
+            // Get visible questions for this page
+            const visibleQuestionIds = await analyzeImage(page, questions);
+            if (visibleQuestionIds.length === 0) continue;
+
+            console.log(`Processing page ${page.number} with questions:`, visibleQuestionIds);
+
+            // For each visible question on this page
+            for (const questionId of visibleQuestionIds) {
+                try {
+                    // First, select the page
+                    if (page.checkboxButton) {
+                        page.checkboxButton.click();
+                        await wait(500); // Wait for UI to update
+                    }
+
+                    // Then find and click the question
+                    const questionElement = findQuestionElement(questionId);
+                    if (questionElement) {
+                        questionElement.click();
+                        await wait(500); // Wait between question selections
+                    } else {
+                        console.warn(`Question element not found for ID: ${questionId}`);
+                    }
+                } catch (error) {
+                    console.error(`Error selecting question ${questionId} on page ${page.number}:`, error);
+                }
             }
+
+            await wait(1000); // Wait between pages
         } catch (error) {
-            console.error(`Failed to analyze page ${page.number}:`, error);
-            // Add a longer delay after errors
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            console.error(`Error processing page ${page.number}:`, error);
+            await wait(2000); // Longer wait after errors
         }
     }
-    return allResults;
+}
+
+// Function to show loading state
+function setLoadingState(button, isLoading) {
+    if (!button) return;
+    
+    const icon = button.querySelector('.fa');
+    const spanText = button.querySelector('span:last-child');
+    
+    if (!icon || !spanText) return;
+    
+    if (isLoading) {
+        icon.className = 'fa fa-spinner fa-spin';
+        spanText.textContent = ' Analyzing...';
+        button.disabled = true;
+    } else {
+        icon.className = 'fa fa-magic';
+        spanText.textContent = ' Autofill';
+        button.disabled = false;
+    }
 }
 
 // Function to add the Autofill button
 function addAutofillButton() {
-    // Check if we're on the select_pages URL
     if (!window.location.href.includes('/select_pages')) return;
-    
-    // Check if button already exists
     if (document.getElementById('autofill-button')) return;
     
-    // Find the action list in the action bar
     const actionList = document.querySelector('.actionBar--actionList');
     if (!actionList) return;
 
-    // Create list item
     const listItem = document.createElement('li');
-    
-    // Create the button with Gradescope's style
     const button = document.createElement('button');
     button.id = 'autofill-button';
     button.type = 'button';
     button.className = 'tiiBtn tiiBtn-secondary actionBar--action';
     
-    // Create span structure to match Gradescope's button style
     const spanOuter = document.createElement('span');
     const icon = document.createElement('i');
     icon.className = 'fa fa-magic';
@@ -219,49 +174,34 @@ function addAutofillButton() {
     const spanText = document.createElement('span');
     spanText.textContent = ' Autofill';
     
-    // Assemble the button
     spanOuter.appendChild(icon);
     spanOuter.appendChild(spanText);
     button.appendChild(spanOuter);
     listItem.appendChild(button);
     
-    // Update click handler
     button.addEventListener('click', async () => {
-        const questions = getQuestions();
-        const pages = getPages();
-        console.log('Questions for autofill:', questions);
-        console.log('Pages for autofill:', pages);
-        
-        console.log('Starting page analysis...');
-        const results = await analyzeAllPages(pages, questions);
-        console.log('Analysis complete:', results);
-        
-        // Group results by question
-        const resultsByQuestion = {};
-        results.forEach(result => {
-            if (!resultsByQuestion[result.questionId]) {
-                resultsByQuestion[result.questionId] = [];
-            }
-            resultsByQuestion[result.questionId].push(result);
-        });
-        
-        // For each question, select pages with high relevance scores
-        Object.entries(resultsByQuestion).forEach(([questionId, questionResults]) => {
-            // Sort by relevance score in descending order
-            const relevantPages = questionResults
-                .filter(result => result.relevanceScore > 50) // Adjust threshold as needed
-                .sort((a, b) => b.relevanceScore - a.relevanceScore);
-                
-            // Select the pages for this question
-            relevantPages.forEach(result => {
-                if (result.page.checkboxButton && !result.page.checkboxButton.classList.contains('selected')) {
-                    result.page.checkboxButton.click();
-                }
+        const buttonRef = button;
+        try {
+            setLoadingState(buttonRef, true);
+
+            const questions = getQuestions();
+            const pages = getPages();
+            console.log('Starting auto-selection with:', {
+                pages: pages.length,
+                questions: questions.length
             });
-        });
+            
+            await selectPagesAndQuestions(pages, questions);
+            
+            console.log('Auto-selection complete');
+        } catch (error) {
+            console.error('Error during autofill:', error);
+            alert('An error occurred during autofill. Please check the console for details.');
+        } finally {
+            setLoadingState(buttonRef, false);
+        }
     });
     
-    // Insert before the Submit button (last item in the list)
     const submitButton = actionList.querySelector('li:last-child');
     actionList.insertBefore(listItem, submitButton);
 }
@@ -271,11 +211,10 @@ addAutofillButton();
 
 // Watch for DOM changes
 const observer = new MutationObserver(() => {
-    console.log('DOM changed');
     addAutofillButton();
 });
 
 observer.observe(document.body, {
     childList: true,
     subtree: true
-}); 
+});

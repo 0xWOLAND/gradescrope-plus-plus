@@ -3,8 +3,13 @@
   "name": "Gradescope Page Selector Helper",
   "version": "1.0",
   "description": "Changes grey squares to green on Gradescope page selection interface",
-  "permissions": ["activeTab"],
-  "host_permissions": ["*://*.x.ai/*"],
+  "permissions": [
+    "https://gradescope-grok-worker.bhargav-annem.workers.dev/",
+    "https://production-gradescope-uploads.s3-us-west-2.amazonaws.com/"
+  ],
+  "host_permissions": [
+    "https://production-gradescope-uploads.s3-us-west-2.amazonaws.com/"
+  ],
   "content_scripts": [
     {
       "matches": ["*://*.gradescope.com/*"],

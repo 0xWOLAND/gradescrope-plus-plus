@@ -2,44 +2,29 @@
     background-color: #4CAF50 !important;
     border-color: #45a049 !important;
 }
-
 .page {
     background-color: #4CAF50 !important;
     border-color: #45a049 !important;
 }
-
 .page-image-container {
     background-color: rgb(76, 175, 80) !important;
     border: 2px solid rgb(69, 160, 73) !important;
 }
 
-/* Only keep the loading animation styles */
+/* Nyan Cat button styles */
 #autofill-button.loading {
-    background: linear-gradient(
-        45deg,
-        #ff0000,
-        #ff7f00,
-        #ffff00,
-        #00ff00,
-        #0000ff,
-        #4b0082,
-        #8b00ff
-    ) !important;  /* Added !important to override Gradescope styles */
-    background-size: 200% 200% !important;
-    animation: rainbow-move 2s linear infinite;
+    background-image: url('chrome-extension://__MSG_@@extension_id__/background.gif') !important;
+    background-size: cover !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
     border: none !important;
-}
-
-@keyframes rainbow-move {
-    0% {
-        background-position: 0% 0%;
-    }
-    100% {
-        background-position: 200% 200%;
-    }
+    position: relative !important;
+    overflow: hidden !important;
 }
 
 #autofill-button.loading span {
+    position: relative !important;
     color: white !important;
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+    text-shadow: 0 0 3px rgba(0, 0, 0, 0.8) !important;
+    z-index: 1 !important;
 }

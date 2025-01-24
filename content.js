@@ -87,6 +87,7 @@ async function analyzeImages(pages, _questions) {
 async function selectPagesAndQuestions(pages, questions) {
     const analysis = await analyzeImages(pages, questions);
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, which: 27 }));
+    await removeAllPageAssignments();
     
     for (let [idx, result] of analysis.entries()) {
         const questionsToPick = questions.filter(question => result.questions.includes(question.id));

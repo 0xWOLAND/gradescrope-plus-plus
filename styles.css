@@ -1,0 +1,29 @@
+.green-square {
+    background-color: #4CAF50 !important; /* Green color */
+    border-color: #45a049 !important;
+}
+
+.page {
+    background-color: #4CAF50 !important;
+    border-color: #45a049 !important;
+}
+
+.page-image-container {
+    background-color: rgb(76, 175, 80) !important;
+    border: 2px solid rgb(69, 160, 73) !important;
+}
+
+#autofill-button {
+    background-color: #2196F3;
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    margin: 10px;
+}
+
+#autofill-button:hover {
+    background-color: #1976D2;
+} 

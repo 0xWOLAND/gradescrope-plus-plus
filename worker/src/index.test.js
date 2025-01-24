@@ -2,30 +2,27 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import dotenv from 'dotenv';
 dotenv.config();
 
-// const WORKER_URL = 'https://gradescope-grok-worker.bhargav-annem.workers.dev';
 const WORKER_URL = 'http://localhost:8787';
 
 describe('Gradescope Worker Integration Test', () => {
   // Mock questions data structure
   const mockQuestions = [
-    { number: '1', id: '2.1', points: '1.0 pt' },
-    { number: '2', id: '2.2', points: '1.0 pt' },
-    { number: '3', id: '2.3', points: '1.0 pt' },
-    { number: '4', id: '2.4', points: '1.0 pt' },
-    { number: '5', id: '2.5', points: '1.0 pt' },
+    { number: '1', id: '2.1'},
+    { number: '2', id: '2.2'},
+    { number: '3', id: '2.3'},
+    { number: '4', id: '2.4'},
+    { number: '5', id: '2.5'},
   ];
 
-  // Mock pages data structure with full URLs
+  // Get fresh pages from Gradescope since these are stale
   const mockPages = [
-    {
-      number: '1',
-      imageUrl: "https://production-gradescope-uploads.s3-us-west-2.amazonaws.com/uploads/page/file/1341853865/page_1.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAV45MPIOW4EWZDQ3R%2F20250124%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20250124T065542Z&X-Amz-Expires=10800&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEAYaCXVzLXdlc3QtMiJHMEUCIQDp8aqIylUWnCqbFyeITt%2BgEpaGGnTkokNGMtGt4RmtXAIgfh3IJ67P8Fw5jgXFCQE08WYL9MjxF3xrIi0jAREWZW8qxAUI%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FARAAGgw0MDU2OTkyNDkwNjkiDFd0MVurJSwsoWNuMiqYBWy6JiyEYcW5AXsNrGpcc7CHFt6aCMbYXBztPCku1xkaK69%2FAmOwPmWCySBvflIu%2FvJIcEXuj%2BFFZ%2FQ%2BHAsIukU9fHNYyVAFvpPwMMxOtPg4cWDDA6yzbjlXvK8qZSw8zQbF1fW02YoPSPhzwcmU2P8zDLqhMEr47eIW9Ake8zeepW2jsLvWeiPTTG%2BWFHqC%2B5XCRD8B8T1iwfvowj2vBa8cwu3XvrAOz%2BsfQXCygIM0GSW2Mp2gGLDQmSgh3BoBOardZPMkGFmN%2B0FVfzjrE%2BtgMS36sDl%2BfInRD%2BkGw8WW3DBn7SF5%2FgiJ5ri06ApqbflmacfsJrJ%2B0SvgjnJAnRfG1ygxdznDxWrMEqCo9EAciiWsLN0%2BuUBuvoR8N%2FIBKDm1kIoIDWQ0YGW%2BlmlvIX%2F0c1%2BlROSALREpbpwxu6%2Fi5vvicS0SbcDYOu%2BGtnqTBmiM%2B4jsduxDXQZyFcH7UikzluPgiWktid38sIMNPvuzkA9S3gGwBNbxW3aZJpU7JuHC%2F4ZiU3CRxAdUfns0ij5RvUqp4REGHg5gXPCG7hhbdt0p5AZCp%2BmmV134zhmqES0EM58H3yhMLuUttfyFyu5AAIhMWaZaGpz0BgRKFgaaC0D51eyDucQec6%2BjxuhCLJ8A9rBfHFkazT44Fz2dYxaU61Ouw9NYrrZecdZqCPOGE65bb8THacR5RJ1PIf0NdHZQW2aBNnFrwteE6vHV7kcRwCB6TsS4khPQptWVR%2Fsg955w0r%2FZZKTxyvKiaRNV8PQwI8fcVru6rgp035AIQoRj9RBtdn1Sf%2FjW9afXsy7JM9gtF4S%2B5QwkGD%2FEQ9D2M%2BfKVlCrq5iY7oBZlWFYgEyG0vo97EUMlRKMl4H%2BT14nlMskg5hMC7YwuNzMvAY6sQEQxXk6vBshD%2BowfnlccJuetfO2wAoB%2Feq8BshQa0fwpIrJBV8lIRV8uyUza%2B9UZXEDoaZTEPybDLbbEQl5%2FfbEDjUoWwcAIWFqm4LIPGa%2BA8sqa5xMmYbm02T39LKs2I1T6Prr0QllLGw5THNgUhw9ciLjmVQSLz%2FVb14tfIyZ7%2Fa23L3YVoZrmrFskkeGRjA%2FY2nwIM9W%2FLLgSExyssETMeRBaTZxorG%2F5Pmjl8yzGJs%3D&X-Amz-SignedHeaders=host&X-Amz-Signature=e263dd5cf6cd5c30e6c2cd27c89084c637709c119e16d6c4f2591f68f2043812",
-    },
+      'https://production-gradescope-uploads.s3-us-west-2.amazonaws.com/uploads/page/file/1341853865/page_1.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAV45MPIOW5PFXNO2L%2F20250124%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20250124T182710Z&X-Amz-Expires=10800&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEBEaCXVzLXdlc3QtMiJHMEUCIDkoM%2B2b0d7wXIuGNG4Lnk7G5HS5hPm0NifnyembvCH9AiEA0j9qUiW1rZB3iNlu%2FUG5%2FmWa60dc2WqGrTF7mIYMUswquQUIGhAAGgw0MDU2OTkyNDkwNjkiDIWmZ43ez6wGJgGRoCqWBc%2BMoH6AjCp%2FZBU880jDjGK5xyyx4EwiedyMRnaVMgLwyuaCrbp5mzW7jWqE4%2Ba9WGLD%2BVNL3VNE2ORq3uPcYcgXyOT%2Fz259%2FB%2FW%2B%2Be8YgxvPkFygfyYtVGWE7gpJWfOq9mR3uQbiuLTkoHXxuSPQG0M34UI6ZdVFNVIncu6zbXMtk2TIDpKDaXIYcSn1nqyoXdHTVhguIOobEaKo4c%2FBBP7VCBhf2lUOrge6l0oOlKUCay2m9ChWRFXI2Uzyi8RBo7dXUrTfrffIZLojaOy5PiXm99vubzgYkra1k4ZKYZomkjtWgd4n6QDH4RhHHwVTb4lEdb6rQQ8wbkEKHO3aK%2BPe7pznxMKPJ7uAQVb18GCiDv172rGWCe5tBvLpXDFCgy9r1PNUSnw1%2Bsa6oCUEx8kG93Jw2hokEBtL6NF8%2F%2F8c%2Bv5XKW9w1t5Cl3xPhL1UAgMNfcB0YT6kR5HGkTzCVin3yYSLVXb8AzY2dX%2BmwvsA9cY%2BozC%2BMkrDCJAaqTYseaL7ftxcfxO58xYG4v7Y63q%2B9OeAmlxp9QW9pHhqsAFPPe03PaxemStfM6x%2Bh8Q%2Fseqqwa%2FJJC6XZO4WSCqwJXJMQ9VVDuLRysk9Is7OVmtzQp%2BYxoQlTr4eoblQ7CaU91Q9iSjv6R5x4AoXnN3VpHDiSUkOOefS5VC5k6OotSwtTBKpNduOuMtzlg0icK5g8SC0HktYpUltcDIMpLcfLqh%2BGrSXQjjU62PTHSkmSZl1V2kdXoyMuoHlGPe3itbVPLXlaq431e0Fx3D6QeKrPNt96pUmD6mAP5RXoyXTrzsK6WXMHM8UQqzudVKJvgFo88n%2Fw0XIFIo31e%2BNV36K5yQch99hlc5PibytoIEDyO%2Fn4henILbMOuHz7wGOrEBZ3ybdvCUNdQIZRqOlhdpEv6eGg%2FqhTvfRqkX8rpafEMvkOQPvSRDVHoTOnd8tZDTtHyBjf%2Bf1fK%2Fb4eWfjez5TNgpbeKizL6g5GoySsOuTOczQTIfrtN4NMJOY%2FYVYyXen3i3ikcLpPVvx6CQawc063k7qkdKQTOGPAhPf21HTSrXyU4qemfLmXIZGLvBwpHMYrLM0HufQ9LUx%2FeOrM3OXU%2BabmIo3aLAnXmElg%2BPmLT&X-Amz-SignedHeaders=host&X-Amz-Signature=e7eaac695c44c78eaf42aa562c9003650970c90821b00d9204bff4cac1bf51ae',
+      'https://production-gradescope-uploads.s3-us-west-2.amazonaws.com/uploads/page/file/1341853866/page_2.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAV45MPIOW5PFXNO2L%2F20250124%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20250124T182710Z&X-Amz-Expires=10800&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEBEaCXVzLXdlc3QtMiJHMEUCIDkoM%2B2b0d7wXIuGNG4Lnk7G5HS5hPm0NifnyembvCH9AiEA0j9qUiW1rZB3iNlu%2FUG5%2FmWa60dc2WqGrTF7mIYMUswquQUIGhAAGgw0MDU2OTkyNDkwNjkiDIWmZ43ez6wGJgGRoCqWBc%2BMoH6AjCp%2FZBU880jDjGK5xyyx4EwiedyMRnaVMgLwyuaCrbp5mzW7jWqE4%2Ba9WGLD%2BVNL3VNE2ORq3uPcYcgXyOT%2Fz259%2FB%2FW%2B%2Be8YgxvPkFygfyYtVGWE7gpJWfOq9mR3uQbiuLTkoHXxuSPQG0M34UI6ZdVFNVIncu6zbXMtk2TIDpKDaXIYcSn1nqyoXdHTVhguIOobEaKo4c%2FBBP7VCBhf2lUOrge6l0oOlKUCay2m9ChWRFXI2Uzyi8RBo7dXUrTfrffIZLojaOy5PiXm99vubzgYkra1k4ZKYZomkjtWgd4n6QDH4RhHHwVTb4lEdb6rQQ8wbkEKHO3aK%2BPe7pznxMKPJ7uAQVb18GCiDv172rGWCe5tBvLpXDFCgy9r1PNUSnw1%2Bsa6oCUEx8kG93Jw2hokEBtL6NF8%2F%2F8c%2Bv5XKW9w1t5Cl3xPhL1UAgMNfcB0YT6kR5HGkTzCVin3yYSLVXb8AzY2dX%2BmwvsA9cY%2BozC%2BMkrDCJAaqTYseaL7ftxcfxO58xYG4v7Y63q%2B9OeAmlxp9QW9pHhqsAFPPe03PaxemStfM6x%2Bh8Q%2Fseqqwa%2FJJC6XZO4WSCqwJXJMQ9VVDuLRysk9Is7OVmtzQp%2BYxoQlTr4eoblQ7CaU91Q9iSjv6R5x4AoXnN3VpHDiSUkOOefS5VC5k6OotSwtTBKpNduOuMtzlg0icK5g8SC0HktYpUltcDIMpLcfLqh%2BGrSXQjjU62PTHSkmSZl1V2kdXoyMuoHlGPe3itbVPLXlaq431e0Fx3D6QeKrPNt96pUmD6mAP5RXoyXTrzsK6WXMHM8UQqzudVKJvgFo88n%2Fw0XIFIo31e%2BNV36K5yQch99hlc5PibytoIEDyO%2Fn4henILbMOuHz7wGOrEBZ3ybdvCUNdQIZRqOlhdpEv6eGg%2FqhTvfRqkX8rpafEMvkOQPvSRDVHoTOnd8tZDTtHyBjf%2Bf1fK%2Fb4eWfjez5TNgpbeKizL6g5GoySsOuTOczQTIfrtN4NMJOY%2FYVYyXen3i3ikcLpPVvx6CQawc063k7qkdKQTOGPAhPf21HTSrXyU4qemfLmXIZGLvBwpHMYrLM0HufQ9LUx%2FeOrM3OXU%2BabmIo3aLAnXmElg%2BPmLT&X-Amz-SignedHeaders=host&X-Amz-Signature=62aad962e45f3b912995598e6f36b0b571feb5a90828a93e3d2420a47f3181a3'
   ];
 
   it('processes a single page and returns visible questions', async () => {
     const formData = new FormData();
-    formData.append('imageUrl', mockPages[0].imageUrl);
+    formData.append('imageUrls', JSON.stringify(mockPages));
     formData.append('questions', JSON.stringify(mockQuestions));
 
     const response = await fetch(WORKER_URL, {

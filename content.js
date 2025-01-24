@@ -1,8 +1,7 @@
-// Configuration
 const WORKER_URL = 'https://gradescope-grok-worker.bhargav-annem.workers.dev';
 
-// Helper function to wait between actions
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const DELAY = 10;
 
 // Function to get all questions from the outline
 function getQuestions() {
@@ -55,16 +54,19 @@ function getPages() {
     return pages;
 }
 
-// Function to analyze a single page
-async function analyzeImage(page, questions) {
+// Function to analyze all pages at once
+async function analyzeImages(pages, _questions) {
     try {
-        if (!page.imageUrl) {
-            console.log(`Skipping page ${page.number} - no image URL`);
+        const imageUrls = pages.map(page => page.imageUrl).filter(url => url);
+        const questions = _questions.map(question => ({number: question.number, id: question.id}));
+
+        if (imageUrls.length === 0) {
+            console.log('No valid image URLs found');
             return [];
         }
 
         const formData = new FormData();
-        formData.append('imageUrl', page.imageUrl);
+        formData.append('imageUrls', JSON.stringify(imageUrls));
         formData.append('questions', JSON.stringify(questions));
 
         const response = await fetch(WORKER_URL, {
@@ -76,63 +78,33 @@ async function analyzeImage(page, questions) {
             throw new Error(`Worker error! status: ${response.status}`);
         }
 
-        const visibleQuestionIds = await response.json();
-        console.log(`Page ${page.number} visible questions:`, visibleQuestionIds);
+        const result = await response.json();
         
-        return visibleQuestionIds;
+        return result.images || [];
     } catch (error) {
-        console.error(`Error analyzing page ${page.number}:`, error);
+        console.error('Error analyzing images:', error);
         return [];
     }
 }
 
-// Function to find question element by ID
-function findQuestionElement(questionId) {
-    const questions = getQuestions();
-    return questions.find(q => q.id === questionId)?.element;
-}
 
-// Function to sequentially select pages and questions
 async function selectPagesAndQuestions(pages, questions) {
-    for (const page of pages) {
-        try {
-            // Get visible questions for this page
-            const visibleQuestionIds = await analyzeImage(page, questions);
-            if (visibleQuestionIds.length === 0) continue;
-
-            console.log(`Processing page ${page.number} with questions:`, visibleQuestionIds);
-
-            // For each visible question on this page
-            for (const questionId of visibleQuestionIds) {
-                try {
-                    // First, select the page
-                    if (page.checkboxButton) {
-                        page.checkboxButton.click();
-                        await wait(500); // Wait for UI to update
-                    }
-
-                    // Then find and click the question
-                    const questionElement = findQuestionElement(questionId);
-                    if (questionElement) {
-                        questionElement.click();
-                        await wait(500); // Wait between question selections
-                    } else {
-                        console.warn(`Question element not found for ID: ${questionId}`);
-                    }
-                } catch (error) {
-                    console.error(`Error selecting question ${questionId} on page ${page.number}:`, error);
-                }
-            }
-
-            await wait(1000); // Wait between pages
-        } catch (error) {
-            console.error(`Error processing page ${page.number}:`, error);
-            await wait(2000); // Longer wait after errors
+    const analysis = await analyzeImages(pages, questions);
+    
+    for (let [idx, result] of analysis.entries()) {
+        const questionsToPick = questions.filter(question => result.questions.includes(question.id));
+        
+        for (let question of questionsToPick) {
+            await wait(DELAY);
+            question.element.click();
+            await wait(DELAY);
+            pages[idx].checkboxButton.click();
+            await wait(DELAY);
+            question.element.click();
         }
     }
 }
 
-// Function to show loading state
 function setLoadingState(button, isLoading) {
     if (!button) return;
     
@@ -183,17 +155,10 @@ function addAutofillButton() {
         const buttonRef = button;
         try {
             setLoadingState(buttonRef, true);
-
             const questions = getQuestions();
             const pages = getPages();
-            console.log('Starting auto-selection with:', {
-                pages: pages.length,
-                questions: questions.length
-            });
-            
             await selectPagesAndQuestions(pages, questions);
             
-            console.log('Auto-selection complete');
         } catch (error) {
             console.error('Error during autofill:', error);
             alert('An error occurred during autofill. Please check the console for details.');

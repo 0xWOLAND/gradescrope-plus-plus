@@ -1,7 +1,18 @@
-const XAI_API_URL = 'https://api.x.ai/v1/chat/completions';
+import { z } from 'zod';
+import { zodResponseFormat } from 'openai/helpers/zod';
+import OpenAI from 'openai';
+
+// Define the schema for image analysis results
+const ImageAnalysis = z.object({
+  imageId: z.string(),
+  questions: z.array(z.string()),
+});
+
+const AnalysisResponse = z.object({
+  images: z.array(ImageAnalysis)
+});
 
 async function fetchAndConvertToBase64(imageUrl) {
-  console.log('Fetching image from URL:', imageUrl);
   try {
     const response = await fetch(imageUrl);
     if (!response.ok) {
@@ -20,17 +31,29 @@ async function fetchAndConvertToBase64(imageUrl) {
     }
     
     const encodedBase64 = btoa(base64);
-    console.log('Successfully converted image to base64');
     return encodedBase64;
   } catch (error) {
-    console.error('Error converting image to base64:', error);
     throw new Error(`Failed to process image: ${error.message}`);
   }
 }
 
+async function processImages(imageUrls) {
+  const processedImages = await Promise.all(
+    imageUrls.map(async (url) => {
+      const base64 = await fetchAndConvertToBase64(url);
+      return {
+        type: 'image_url',
+        image_url: {
+          url: `data:image/jpeg;base64,${base64}`
+        }
+      };
+    })
+  );
+  return processedImages;
+}
+
 export default {
   async fetch(request, env, ctx) {
-    
     if (request.method === 'OPTIONS') {
       return new Response(null, {
         headers: {
@@ -47,21 +70,25 @@ export default {
     }
 
     try {
-      if (!env.XAI_API_KEY) {
-        throw new Error('XAI_API_KEY environment variable is not set');
+      if (!env.OPENAI_API_KEY) {
+        throw new Error('OPENAI_API_KEY environment variable is not set');
       }
+
+      const openai = new OpenAI({
+        apiKey: env.OPENAI_API_KEY
+      });
 
       const formData = await request.formData();
       console.log('Received form data:', {
         formDataEntries: Object.fromEntries(formData.entries())
       });
 
-      const imageUrl = formData.get('imageUrl');
-      const questions = formData.get('questions'); // Should be JSON string of questions array
+      const imageUrls = JSON.parse(formData.get('imageUrls') || '[]');
+      const questions = formData.get('questions'); // JSON string of questions array
 
-      if (!imageUrl || !questions) {
+      if (!imageUrls.length || !questions) {
         return new Response(JSON.stringify({
-          error: 'Missing required fields: imageUrl and questions'
+          error: 'Missing required fields: imageUrls and questions'
         }), { 
           status: 400,
           headers: {
@@ -74,88 +101,44 @@ export default {
       const questionArray = JSON.parse(questions);
       console.log('Processing questions:', questionArray);
 
-      const base64Image = await fetchAndConvertToBase64(imageUrl);
+      // Process all images in parallel
+      const processedImages = await processImages(imageUrls);
       
-      const apiRequest = {
-        model: "grok-vision-beta",
-        messages: [
-          {
-            "role": "system",
-            "content": "You are a document analyzer. For each question in the list, determine if it appears on the page. Return ONLY an array of question IDs that are visible in the image, without any additional text or formatting."
-          },
-          {
-            "role": "user",
-            "content": [
-              {
-                "type": "text",
-                "text": `Given these questions: ${JSON.stringify(questionArray)}, which question IDs appear on this page? Respond with ONLY an array of strings`
-              },
-              {
-                "type": "image_url",
-                "image_url": {
-                  "url": `data:image/jpeg;base64,${base64Image}`
-                }
-              }
-            ]
-          }
-        ],
-      };
-
-      console.log('Sending request to X.AI API...');
-
-      // Make request to X.AI API
-      const apiResponse = await fetch(XAI_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${env.XAI_API_KEY}`
-        },
-        body: JSON.stringify(apiRequest)
+      // Build the content array with image IDs
+      const content = [];
+      processedImages.forEach((image, index) => {
+        content.push({ 
+          type: 'text', 
+          text: `This is page ${index + 1}:` 
+        });
+        content.push(image);
       });
 
-      if (!apiResponse.ok) {
-        const errorText = await apiResponse.text();
-        console.error('API error response:', {
-          status: apiResponse.status,
-          headers: Object.fromEntries(apiResponse.headers.entries()),
-          body: errorText
-        });
-        throw new Error(`API error: ${apiResponse.status} ${errorText}`);
-      }
-
-      console.log('Successfully received API response');
-      const apiData = await apiResponse.json();
-      
-      // Extract and parse the question IDs
-      if (!apiData.choices?.[0]?.message?.content) {
-        console.error('Invalid API response format:', apiData);
-        throw new Error('Invalid response format from API');
-      }
-
-      let visibleQuestions;
-      try {
-        const content = apiData.choices[0].message.content.trim();
-        console.log('Raw API response content:', content);
-        
-        // Handle potential markdown formatting
-        const jsonContent = content.replace(/```json\n?|\n?```/g, '').trim();
-        visibleQuestions = JSON.parse(jsonContent);
-        
-        if (!Array.isArray(visibleQuestions)) {
-          throw new Error('Response is not an array');
+      const messages = [
+          {
+            role: "user",
+            content: [
+              ...content,
+              {
+                type: "text",
+                text: `Given these pages, identify the IDs of the questions that appear in each page from the following list of questions: ${JSON.stringify(questionArray)}.` 
+              },
+            ]
         }
-        
-        console.log('Successfully parsed visible questions:', visibleQuestions);
-      } catch (parseError) {
-        console.error('Failed to parse API response:', {
-          content: apiData.choices[0].message.content,
-          error: parseError.message
-        });
-        throw new Error(`Failed to parse API response: ${parseError.message}`);
-      }
+      ];
 
-      // Return the results
-      return new Response(JSON.stringify(visibleQuestions), {
+      console.log('Sending request to OpenAI API...');
+
+      const response = await openai.beta.chat.completions.parse({
+        model: "gpt-4o",
+        messages,
+        response_format: zodResponseFormat(AnalysisResponse, 'analysis')
+      })
+
+      const analysis = await response.choices[0].message.parsed;
+      console.log('Successfully parsed analysis:', JSON.stringify(analysis));
+
+      return new Response(JSON.stringify(analysis), {
         headers: {
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*',

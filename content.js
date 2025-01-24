@@ -3,7 +3,6 @@ const WORKER_URL = 'https://gradescope-grok-worker.bhargav-annem.workers.dev';
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const DELAY = 10;
 
-// Function to get all questions from the outline
 function getQuestions() {
     const questions = [];
     const questionItems = document.querySelectorAll('.selectPagesQuestionOutline--item');
@@ -28,7 +27,6 @@ function getQuestions() {
     return questions;
 }
 
-// Function to get all pages
 function getPages() {
     const pages = [];
     const pageItems = document.querySelectorAll('.selectPagesPage');
@@ -54,7 +52,6 @@ function getPages() {
     return pages;
 }
 
-// Function to analyze all pages at once
 async function analyzeImages(pages, _questions) {
     try {
         const imageUrls = pages.map(page => page.imageUrl).filter(url => url);
@@ -87,7 +84,6 @@ async function analyzeImages(pages, _questions) {
     }
 }
 
-
 async function selectPagesAndQuestions(pages, questions) {
     const analysis = await analyzeImages(pages, questions);
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, which: 27 }));
@@ -113,7 +109,6 @@ function setLoadingState(button, isLoading) {
     let spanText = button.querySelector('span:last-child');
     let spanOuter = button.querySelector('span');
     
-    // If elements are missing, recreate them
     if (!spanOuter) {
         spanOuter = document.createElement('span');
         button.appendChild(spanOuter);
@@ -177,7 +172,6 @@ function addAutofillButton() {
             const pages = getPages();
             await selectPagesAndQuestions(pages, questions);
             console.log("Autofill complete");
-            // Explicitly reset the button state after completion
             setLoadingState(button, false);
         } catch (error) {
             console.error('Error during autofill:', error);
@@ -190,15 +184,72 @@ function addAutofillButton() {
     actionList.insertBefore(listItem, submitButton);
 }
 
-// Run immediately
+async function removeAllPageAssignments() {
+    const removeButtons = document.querySelectorAll('.tagButton.tagButton--pageNumber');
+    
+    for (const button of removeButtons) {
+        await wait(DELAY);
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, which: 27 }));
+        await wait(DELAY);
+        button.click();
+    }
+}
+
+document.addEventListener('keydown', async (event) => {
+    if (event.shiftKey && event.key === 'Escape') {
+        event.preventDefault();
+        await removeAllPageAssignments();
+    }
+});
+
 addAutofillButton();
 
-// Watch for DOM changes
-const observer = new MutationObserver(() => {
-    addAutofillButton();
+function addShortcutInstructions() {
+    if (document.querySelector('.shortcut-instructions-added')) return;
+    
+    const instructionsP = document.querySelector('.selectPagesHeading--instructions p');
+    if (!instructionsP) return;
+    
+    const shortcutText = document.createElement('span');
+    shortcutText.className = 'shortcut-instructions-added';
+    shortcutText.innerHTML = ` Use <span class="keyboardShortcut"><kbd class="keyboardShortcut--icon">esc</kbd> + <kbd class="keyboardShortcut--icon">shift</kbd></span> to remove all page assignments.`;
+
+    instructionsP.appendChild(document.createTextNode('.'));
+    instructionsP.appendChild(shortcutText);
+}
+
+const observer = new MutationObserver((mutations) => {
+    const shouldUpdate = mutations.some(mutation => {
+        return mutation.target.classList && 
+               (mutation.target.classList.contains('actionBar--actionList') ||
+                mutation.target.classList.contains('selectPagesHeading--instructions'));
+    });
+    
+    if (shouldUpdate) {
+        addAutofillButton();
+        addShortcutInstructions();
+    }
 });
 
-observer.observe(document.body, {
-    childList: true,
-    subtree: true
-});
+function setupObserver() {
+    const actionList = document.querySelector('.actionBar--actionList');
+    const instructions = document.querySelector('.selectPagesHeading--instructions');
+    
+    if (actionList) {
+        observer.observe(actionList, {
+            childList: true,
+            subtree: true
+        });
+    }
+    
+    if (instructions) {
+        observer.observe(instructions, {
+            childList: true,
+            subtree: true
+        });
+    }
+}
+
+addAutofillButton();
+addShortcutInstructions();
+setupObserver();

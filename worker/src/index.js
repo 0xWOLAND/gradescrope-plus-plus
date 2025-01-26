@@ -2,14 +2,14 @@ import { z } from 'zod';
 import { zodResponseFormat } from 'openai/helpers/zod';
 import OpenAI from 'openai';
 
-// Define the schema for image analysis results
-const ImageAnalysis = z.object({
-  imageId: z.string(),
-  questions: z.array(z.string()),
+const QuestionPageMapping = z.object({
+  questionId: z.string(),
+  startPage: z.number(),
+  endPage: z.number()
 });
 
-const AnalysisResponse = z.object({
-  images: z.array(ImageAnalysis)
+const MappingResponse = z.object({
+  mappings: z.array(QuestionPageMapping)
 });
 
 async function fetchAndConvertToBase64(imageUrl) {
@@ -50,6 +50,30 @@ async function processImages(imageUrls) {
     })
   );
   return processedImages;
+}
+
+function convertMappingsToAnalysis(mappingResponse, totalPages) {
+  // Initialize the result array with the correct schema
+  const images = Array.from({ length: totalPages }, (_, index) => ({
+    imageId: `page${index + 1}`,
+    questions: []
+  }));
+
+  // Ensure mappings exists and is an array
+  const mappings = Array.isArray(mappingResponse?.mappings) ? mappingResponse.mappings : [];
+  
+  // For each question mapping, add the question to all pages in its range
+  mappings.forEach(mapping => {
+    if (mapping && typeof mapping.startPage === 'number' && typeof mapping.endPage === 'number' && mapping.questionId) {
+      for (let page = mapping.startPage; page <= mapping.endPage; page++) {
+        if (page > 0 && page <= totalPages) {
+          images[page - 1].questions.push(mapping.questionId);
+        }
+      }
+    }
+  });
+
+  return { images };
 }
 
 export default {
@@ -115,28 +139,34 @@ export default {
       });
 
       const messages = [
-          {
-            role: "user",
-            content: [
-              ...content,
-              {
-                type: "text",
-                text: `Given these pages, identify the IDs of the questions that appear in each page from the following list of questions: ${JSON.stringify(questionArray)}.` 
-              },
-            ]
+        {
+          role: "user",
+          content: [
+            ...content,
+            {
+              type: "text",
+              text: `Given these pages, for each question in the following list, identify the page number where the question BEGINS and where it ENDS. Each subsequent page should be associated with that question until the start of the next question is found. Here are the questions: ${JSON.stringify(questionArray)}. 
+              
+              Return the results as an array of mappings, where each mapping contains:
+              - questionId: the question text
+              - startPage: the page number where this question begins
+              - endPage: the page number where this question ends (either where the next question begins - 1, or the last page if it's the final question)`
+            },
+          ]
         }
       ];
 
       console.log('Sending request to OpenAI API...');
 
-      const response = await openai.beta.chat.completions.parse({
+      // First get the page mappings
+      const mappingResponse = await openai.beta.chat.completions.parse({
         model: "gpt-4o",
         messages,
-        response_format: zodResponseFormat(AnalysisResponse, 'analysis')
-      })
+        response_format: zodResponseFormat(MappingResponse, 'mappings')
+      });
 
-      const analysis = await response.choices[0].message.parsed;
-      console.log('Successfully parsed analysis:', JSON.stringify(analysis));
+      const mappings = mappingResponse.choices[0].message.parsed;
+      const analysis = convertMappingsToAnalysis(mappings, imageUrls.length);
 
       return new Response(JSON.stringify(analysis), {
         headers: {

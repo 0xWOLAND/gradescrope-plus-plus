@@ -1,5 +1,3 @@
-const WORKER_URL = 'https://gradescope-grok-worker.bhargav-annem.workers.dev';
-
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const DELAY = 10;
 
@@ -13,7 +11,8 @@ function getQuestions() {
         
         if (titleElement && pointsElement) {
             const titleText = titleElement.textContent;
-            const [questionNumber, questionId] = titleText.split(' ');
+            const [questionNumber, ...rest] = titleText.split(' ');
+            const questionId = rest.join(' ');
             
             questions.push({
                 number: questionNumber.trim(),
